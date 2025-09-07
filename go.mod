@@ -1,4 +1,4 @@
-module nextools
+module github.com/shoot3rs/nextools
 
 go 1.24.5
 
@@ -8,6 +8,7 @@ require (
 	connectrpc.com/grpchealth v1.4.0
 	github.com/coreos/go-oidc/v3 v3.15.0
 	github.com/nats-io/nats.go v1.45.0
+	github.com/redis/go-redis/v9 v9.12.1
 	github.com/rs/cors v1.11.1
 	github.com/shoot3rs/sseor v0.0.2
 	go.uber.org/zap v1.27.0
@@ -26,7 +27,6 @@ require (
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/nats-io/nkeys v0.4.11 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
-	github.com/redis/go-redis/v9 v9.12.1 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/crypto v0.41.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
