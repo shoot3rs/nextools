@@ -20,6 +20,7 @@ type ContextHelper interface {
 	GetTenant(ctx context.Context) (string, string)
 	GetUserClaims(context.Context) *Claims
 	GetToken(in connect.AnyRequest) string
+	GetSupplier(connect.AnyRequest) string
 }
 
 type Config interface {
