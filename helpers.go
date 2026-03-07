@@ -10,6 +10,15 @@ type contextHelper struct {
 	authenticator Authenticator
 }
 
+func (helper *contextHelper) GetSupplier(request connect.AnyRequest) string {
+	supplierID := request.Header().Get(XSupplierKey)
+	if supplierID == "" {
+		return ""
+	}
+
+	return supplierID
+}
+
 func (helper *contextHelper) GetToken(req connect.AnyRequest) string {
 	accessToken := req.Header().Get("Authorization")
 	if accessToken == "" {
