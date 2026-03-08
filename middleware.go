@@ -212,6 +212,20 @@ func (middleware *middleware) TenantHeaderInterceptor(routes ...string) connect.
 				return next(ctx, request)
 			}
 
+			claims := middleware.contextHelper.GetUserClaims(ctx)
+			if claims.IsClientToken() {
+				log.Println("👮 service account is making this request")
+				if country := request.Header().Get(XCountryKey); country != "" {
+					ctx = context.WithValue(ctx, XCountryKey, country)
+				}
+
+				if state := request.Header().Get(XStateKey); state != "" {
+					ctx = context.WithValue(ctx, XStateKey, state)
+				}
+
+				return next(ctx, request)
+			}
+
 			country := request.Header().Get(XCountryKey)
 			if country == "" {
 				return nil, status.Errorf(codes.InvalidArgument, "missing required X-Country-Iso2 header")
@@ -219,7 +233,6 @@ func (middleware *middleware) TenantHeaderInterceptor(routes ...string) connect.
 
 			newCtx := context.WithValue(ctx, XCountryKey, country)
 
-			claims := middleware.contextHelper.GetUserClaims(ctx)
 			if claims.HasRole("Campaign Manager") {
 				state := request.Header().Get(XStateKey)
 				if state == "" {
@@ -228,18 +241,12 @@ func (middleware *middleware) TenantHeaderInterceptor(routes ...string) connect.
 				newCtx = context.WithValue(newCtx, XStateKey, state)
 			}
 
-			if claims.HasRole("User") {
-				if state := request.Header().Get(XStateKey); state != "" {
-					newCtx = context.WithValue(newCtx, XStateKey, state)
-				}
-			}
-
 			return next(newCtx, request)
 		}
 	}
 }
 
-// CorsMiddleware sets CORS configuration for HTTP server
+// CorsMiddleware sets CORS configuration for the HTTP server
 func (middleware *middleware) CorsMiddleware(h http.Handler) http.Handler {
 	c := cors.New(cors.Options{
 		AllowedOrigins:       []string{"*"},
