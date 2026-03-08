@@ -117,6 +117,11 @@ func (middleware *middleware) UnaryTenantMismatchInterceptor() connect.UnaryInte
 	return func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
 			claims := ctx.Value(ContextKeyUser).(*Claims)
+			if claims.IsClientToken() {
+				log.Println("👮 [UnaryTenantMismatchInterceptor]: service account is making this request")
+				return next(ctx, request)
+			}
+
 			if claims.HasRole("Root") || claims.HasRole("User") {
 				log.Printf("👮 [UnaryTenantMismatchInterceptor]: Skipping tenant mismatch check for role: %s with id: %s\n", claims.GetRole(), claims.Id)
 				return next(ctx, request)
