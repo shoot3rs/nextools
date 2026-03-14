@@ -22,10 +22,10 @@ import (
 const (
 	// ContextKeyUser is used to store the authenticated user's claims in context.
 	ContextKeyUser = "UserClaimsKey"
-	XCountryKey    = "X-Country-Iso2"
-	XStateKey      = "X-State-Iso2"
-	XSupplierKey   = "X-Supplier"
-	XInfluencerKey = "X-Influencer"
+	XCountryKey    = "x-country-iso2"
+	XStateKey      = "X-state-iso2"
+	XSupplierKey   = "x-supplier"
+	XInfluencerKey = "x-influencer"
 )
 
 type Claims struct {

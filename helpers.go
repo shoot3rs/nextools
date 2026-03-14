@@ -10,6 +10,15 @@ type contextHelper struct {
 	authenticator Authenticator
 }
 
+func (helper *contextHelper) GetInfluencer(request connect.AnyRequest) string {
+	influencer := request.Header().Get(XInfluencerKey)
+	if influencer == "" {
+		return ""
+	}
+
+	return influencer
+}
+
 func (helper *contextHelper) GetSupplier(request connect.AnyRequest) string {
 	supplierID := request.Header().Get(XSupplierKey)
 	if supplierID == "" {

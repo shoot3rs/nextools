@@ -21,6 +21,7 @@ type ContextHelper interface {
 	GetUserClaims(context.Context) *Claims
 	GetToken(in connect.AnyRequest) string
 	GetSupplier(connect.AnyRequest) string
+	GetInfluencer(connect.AnyRequest) string
 }
 
 type Config interface {
