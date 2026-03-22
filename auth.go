@@ -112,6 +112,19 @@ func (c *Claims) GetRole() string {
 	return ""
 }
 
+func (c *Claims) GetUserID() string {
+	if c.Id != "" {
+		return c.Id
+	}
+	if c.PreferredUsername != "" {
+		return c.PreferredUsername
+	}
+	if c.Email != "" {
+		return c.Email
+	}
+	return ""
+}
+
 func (c *Claims) String() string {
 	jb, _ := json.MarshalIndent(c, "", " \t")
 	return string(jb)
