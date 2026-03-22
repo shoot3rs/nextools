@@ -137,6 +137,8 @@ func (db *gormDB) CreateIndexes() {
 			db.logf(LevelWarn, "[🧨] failed to run index hook: %v [🧨]", err)
 		}
 	}
+
+	db.logger.OK("👌 Indexes created successfully! 👌")
 }
 
 func (db *gormDB) GetEngine() interface{} {

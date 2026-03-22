@@ -40,10 +40,10 @@ func (b *MiddlewareBuilder) Build() Middleware {
 }
 
 // BuildSSE returns an SSEMiddleware configured with the current dependencies.
-func (b *MiddlewareBuilder) BuildSSE() SSEMiddleware {
-	return &sseMiddleware{
-		loggR:         b.logger,
-		contextHelper: b.helper,
-		authenticator: b.authenticator,
-	}
-}
+//func (b *MiddlewareBuilder) BuildSSE() SSEMiddleware {
+//	return &sseMiddleware{
+//		loggR:         b.logger,
+//		contextHelper: b.helper,
+//		authenticator: b.authenticator,
+//	}
+//}

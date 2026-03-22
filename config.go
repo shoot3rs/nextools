@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"connectrpc.com/validate"
-	"github.com/charmmtech/sseor"
 	"github.com/joho/godotenv"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/redis/go-redis/v9"
@@ -93,16 +92,6 @@ func WithJetStreamConfig(stream jetstream.StreamConfig) ConfigOption {
 	}
 }
 
-// WithSseorConfig injects a custom SSE configuration.
-func WithSseorConfig(s *sseor.Config) ConfigOption {
-	return func(cfg *appConfig) {
-		if s != nil {
-			tmp := *s
-			cfg.sseorConfig = &tmp
-		}
-	}
-}
-
 // WithGormConfig reuses an existing GORM config.
 func WithGormConfig(config *gorm.Config) ConfigOption {
 	return func(cfg *appConfig) {
@@ -121,7 +110,6 @@ type appConfig struct {
 	gormConfig      *gorm.Config
 	validator       validate.Option
 	jetStreamConfig *jetstream.StreamConfig
-	sseorConfig     *sseor.Config
 }
 
 func cloneRedisOptions(value *redis.Options) *redis.Options {
@@ -230,50 +218,6 @@ func (cfg *appConfig) Redis() *redis.Options {
 	}
 
 	return options
-}
-
-func (cfg *appConfig) Sseor() *sseor.Config {
-	if cfg.sseorConfig != nil {
-		return cfg.sseorConfig
-	}
-
-	conf := sseor.DefaultConfig()
-
-	if redisURL := cfg.envValue("REDIS.URL"); redisURL != "" {
-		conf.RedisURL = redisURL
-	} else if alt := cfg.envValue("REDIS_URL"); alt != "" {
-		conf.RedisURL = alt
-	}
-
-	conf.RedisPoolSize = cfg.intFromEnv("REDIS.POOL_SIZE", conf.RedisPoolSize)
-	conf.RedisMinIdleConns = cfg.intFromEnv("REDIS.MIN_IDLE", conf.RedisMinIdleConns)
-	conf.RedisMaxRetries = cfg.intFromEnv("REDIS.MAX_RETRIES", conf.RedisMaxRetries)
-
-	if origins := cfg.splitEnvList("SSE.CORS_ORIGINS"); len(origins) > 0 {
-		conf.CORSOrigins = origins
-	}
-
-	conf.AuthRequired = cfg.boolFromEnv("SSE.AUTH_REQUIRED", conf.AuthRequired)
-	conf.RequireNamespace = cfg.boolFromEnv("SSE.REQUIRE_NAMESPACE", conf.RequireNamespace)
-	conf.HealthCheckPath = cfg.envValue("SSE.HEALTH_PATH")
-	if conf.HealthCheckPath == "" {
-		conf.HealthCheckPath = "/health"
-	}
-	conf.MetricsPath = cfg.envValue("SSE.METRICS_PATH")
-	if conf.MetricsPath == "" {
-		conf.MetricsPath = "/metrics"
-	}
-	if issuer := cfg.envValue("AUTH.URL"); issuer != "" {
-		if realm := cfg.envValue("AUTH.REALM"); realm != "" {
-			conf.OIDCIssuerURL = fmt.Sprintf("%s/realms/%s", strings.TrimRight(issuer, "/"), realm)
-		}
-	}
-	if client := cfg.envValue("AUTH.CLIENT_ID"); client != "" {
-		conf.OIDCClientID = client
-	}
-
-	cfg.sseorConfig = conf
-	return conf
 }
 
 func (cfg *appConfig) Validator() validate.Option {

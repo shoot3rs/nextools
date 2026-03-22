@@ -171,8 +171,8 @@ func (middleware *middleware) UnaryTokenInterceptor(routes ...string) connect.Un
 	}
 }
 
-// LoggingUnaryInterceptor logs sanitized gRPC request and response data
-func (middleware *middleware) LoggingUnaryInterceptor() connect.UnaryInterceptorFunc {
+// UnaryLoggingInterceptor logs sanitized gRPC request and response data
+func (middleware *middleware) UnaryLoggingInterceptor() connect.UnaryInterceptorFunc {
 	return func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, request connect.AnyRequest) (connect.AnyResponse, error) {
 			start := time.Now()
@@ -333,10 +333,10 @@ func NewMiddleware(authenticator Authenticator, logger LoggerClient, contextHelp
 		Build()
 }
 
-func NewSseMiddleware(authenticator Authenticator, logger LoggerClient, contextHelper ContextHelper) SSEMiddleware {
-	return NewMiddlewareBuilder().
-		WithAuthenticator(authenticator).
-		WithLogger(logger).
-		WithContextHelper(contextHelper).
-		BuildSSE()
-}
+//func NewSseMiddleware(authenticator Authenticator, logger LoggerClient, contextHelper ContextHelper) SSEMiddleware {
+//	return NewMiddlewareBuilder().
+//		WithAuthenticator(authenticator).
+//		WithLogger(logger).
+//		WithContextHelper(contextHelper).
+//		BuildSSE()
+//}

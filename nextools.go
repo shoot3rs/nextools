@@ -80,13 +80,13 @@ func (n nextools) Middleware(authenticator Authenticator, logger LoggerClient, c
 	return builder.Build()
 }
 
-func (n nextools) SSEMiddleware(authenticator Authenticator, logger LoggerClient, ctxHelper ContextHelper) SSEMiddleware {
-	builder := n.middlewareFactory().
-		WithAuthenticator(authenticator).
-		WithLogger(logger).
-		WithContextHelper(ctxHelper)
-	return builder.BuildSSE()
-}
+//func (n nextools) SSEMiddleware(authenticator Authenticator, logger LoggerClient, ctxHelper ContextHelper) SSEMiddleware {
+//	builder := n.middlewareFactory().
+//		WithAuthenticator(authenticator).
+//		WithLogger(logger).
+//		WithContextHelper(ctxHelper)
+//	return builder.BuildSSE()
+//}
 
 func (n nextools) Authenticator() Authenticator {
 	builder := n.authenticatorFactory()

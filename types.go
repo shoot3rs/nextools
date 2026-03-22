@@ -7,7 +7,6 @@ import (
 	"connectrpc.com/connect"
 	"connectrpc.com/grpchealth"
 	"connectrpc.com/validate"
-	"github.com/charmmtech/sseor"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
@@ -21,7 +20,6 @@ import (
 type Nextools interface {
 	Logger(cfg Config) LoggerClient
 	Middleware(authenticator Authenticator, logger LoggerClient, ctxHelper ContextHelper) Middleware
-	SSEMiddleware(authenticator Authenticator, logger LoggerClient, ctxHelper ContextHelper) SSEMiddleware
 	Authenticator() Authenticator
 	DBConnection() DBConnection
 	ContextHelper() ContextHelper
@@ -48,7 +46,6 @@ type GlobalConfig interface {
 	JetStream() jetstream.StreamConfig
 	Environment() string
 	Redis() *redis.Options
-	Sseor() *sseor.Config
 	Validator() validate.Option
 }
 
@@ -63,16 +60,10 @@ type DBConnection interface {
 type Middleware interface {
 	CorsMiddleware(http.Handler) http.Handler
 	HealthChecker(string) *grpchealth.StaticChecker
-	LoggingUnaryInterceptor() connect.UnaryInterceptorFunc
+	UnaryLoggingInterceptor() connect.UnaryInterceptorFunc
 	TenantHeaderInterceptor(routes ...string) connect.UnaryInterceptorFunc
 	UnaryTenantMismatchInterceptor() connect.UnaryInterceptorFunc
 	UnaryTokenInterceptor(routes ...string) connect.UnaryInterceptorFunc
-}
-
-type SSEMiddleware interface {
-	AttachSSEHeaders(next http.HandlerFunc) http.HandlerFunc
-	AuthMiddleware(next http.HandlerFunc) http.HandlerFunc
-	NamespaceMiddleware(next http.HandlerFunc) http.HandlerFunc
 }
 
 type Authenticator interface {
