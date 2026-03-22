@@ -64,8 +64,32 @@ func (helper *contextHelper) getContextString(ctx context.Context, key any) (str
 	return s, ok
 }
 
-func NewContextHelper(authenticator Authenticator) ContextHelper {
+// ContextHelperBuilder builds a ContextHelper with optional dependencies.
+type ContextHelperBuilder struct {
+	authenticator Authenticator
+}
+
+// NewContextHelperBuilder creates a new builder instance.
+func NewContextHelperBuilder() *ContextHelperBuilder {
+	return &ContextHelperBuilder{}
+}
+
+// WithAuthenticator assigns the Authenticator dependency.
+func (b *ContextHelperBuilder) WithAuthenticator(auth Authenticator) *ContextHelperBuilder {
+	b.authenticator = auth
+	return b
+}
+
+// Build returns the configured ContextHelper.
+func (b *ContextHelperBuilder) Build() ContextHelper {
 	return &contextHelper{
-		authenticator: authenticator,
+		authenticator: b.authenticator,
 	}
+}
+
+// NewContextHelper is a convenience helper that uses the builder.
+func NewContextHelper(authenticator Authenticator) ContextHelper {
+	return NewContextHelperBuilder().
+		WithAuthenticator(authenticator).
+		Build()
 }

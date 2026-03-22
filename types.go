@@ -6,15 +6,27 @@ import (
 
 	"connectrpc.com/connect"
 	"connectrpc.com/grpchealth"
+	"connectrpc.com/validate"
+	"github.com/charmmtech/sseor"
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/redis/go-redis/v9"
-	"github.com/shoot3rs/sseor"
-	"go.uber.org/zap"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"gorm.io/gorm"
+	gormlogger "gorm.io/gorm/logger"
 )
+
+type Nextools interface {
+	Logger(cfg Config) LoggerClient
+	Middleware(authenticator Authenticator, logger LoggerClient, ctxHelper ContextHelper) Middleware
+	SSEMiddleware(authenticator Authenticator, logger LoggerClient, ctxHelper ContextHelper) SSEMiddleware
+	Authenticator() Authenticator
+	DBConnection() DBConnection
+	ContextHelper() ContextHelper
+	GlobalConfig() GlobalConfig
+}
 
 type ContextHelper interface {
 	GetTenant(ctx context.Context) (string, string)
@@ -24,7 +36,7 @@ type ContextHelper interface {
 	GetInfluencer(connect.AnyRequest) string
 }
 
-type Config interface {
+type GlobalConfig interface {
 	Gorm() *gorm.Config
 	HttpClient() *http.Client
 	ServerAddr() string
@@ -34,17 +46,18 @@ type Config interface {
 	IsProduction() bool
 	IsTesting() bool
 	JetStream() jetstream.StreamConfig
-	LoadEnv()
-	Logger() *zap.Logger
 	Environment() string
 	Redis() *redis.Options
 	Sseor() *sseor.Config
+	Validator() validate.Option
 }
 
-type Connection interface {
+type DBConnection interface {
 	Connect()
 	GetConfig() *gorm.Config
 	GetEngine() interface{}
+	CreateIndexes()
+	EnablePostGIS() error
 }
 
 type Middleware interface {
@@ -67,4 +80,26 @@ type Authenticator interface {
 	ExtractToken(ctx context.Context) (string, error)
 	GetVerifier() *oidc.IDTokenVerifier
 	ValidateTokenMiddleware(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error)
+}
+
+// LoggerClient lists the exported helpers backed by nextools.Logger.
+type LoggerClient interface {
+	With(fields ...Field) *Logger
+	SetLevel(Level)
+	Trace(msg string, fields ...Field)
+	Debug(msg string, fields ...Field)
+	Info(msg string, fields ...Field)
+	OK(msg string, fields ...Field)
+	Warn(msg string, fields ...Field)
+	Error(msg string, fields ...Field)
+	Fatal(msg string, fields ...Field)
+	Log(level Level, msg string, fields ...Field)
+	WithEntry(Entry)
+	Banner(extras ...Field)
+	ConnectInterceptor() connect.UnaryInterceptorFunc
+	GORMLogger(minLevel gormlogger.LogLevel) gormlogger.Interface
+	NATSOptions() []nats.Option
+	NATSPublish(nc *nats.Conn, subject string, data []byte) error
+	NATSSubscribe(nc *nats.Conn, subject string, handler nats.MsgHandler) (*nats.Subscription, error)
+	PGTracer() *PGQueryTracer
 }

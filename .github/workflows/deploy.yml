@@ -1,0 +1,131 @@
+name: Deploy Service
+
+on:
+  workflow_run:
+    workflows: [ "Build and Push Docker Image" ]
+    types: [ completed ]
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # Required for OIDC
+      contents: read
+      packages: read
+
+    env:
+      VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+      SERVICE: ${{ github.event.repository.name }}
+      NETWORK: backend
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget gpg jq
+          wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" \
+            | sudo tee /etc/apt/sources.list.d/hashicorp.list
+          sudo apt-get update
+          sudo apt-get install -y vault
+
+      - name: Get GitHub OIDC token
+        id: oidc-token
+        run: |
+          echo "OIDC_TOKEN=$(curl -s \
+            -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=vault" \
+            | jq -r '.value')" >> $GITHUB_ENV
+
+      - name: Login to Vault using OIDC
+        run: |
+          vault write -format=json auth/jwt/login \
+            role=github-actions \
+            jwt=$OIDC_TOKEN > vault_token.json
+          echo "VAULT_TOKEN=$(jq -r .auth.client_token vault_token.json)" >> $GITHUB_ENV
+
+      - name: Build Environment Variables from Vault
+        run: |
+          set -euo pipefail
+          
+          echo "🔑 Vault version:"
+          vault --version
+          
+          declare -A env_map
+          
+          # ===============================
+          # Shared secrets (app, db, auth, nats)
+          # ===============================
+          for secret in app db auth nats; do
+            echo "👮 Fetching shared secret: $secret"
+            VARS=$(vault kv get -format=json secret/prod/shared/$secret |
+            jq -r '.data.data | to_entries | .[] | "\(.key)=\(.value)"')
+          
+            for kv in $VARS; do
+              key="${kv%%=*}"
+              value="${kv#*=}"
+              env_map["$key"]="$value"
+            done
+          done
+          
+          # ===============================
+          # Service-specific secrets (KV v2, flat)
+          # ===============================
+          echo "👮 Listing service-specific secrets for $SERVICE"
+          SERVICE_KEYS=("app" "db" "nats")
+          
+          for key in "${SERVICE_KEYS[@]}"; do
+            VARS=$(vault kv get -format=json secret/prod/services/$SERVICE/$key |
+              jq -r '.data.data | to_entries | .[] | "\(.key)=\(.value)"')
+            for kv in $VARS; do
+              k="${kv%%=*}"
+              v="${kv#*=}"
+              env_map["$k"]="$v"
+            done
+          done
+          
+          # ===============================
+          # Build environment args string
+          # ===============================
+          sorted_keys=$(printf "%s\n" "${!env_map[@]}" | sort -u)
+          
+          # Build ENV_ARGS as a single string that can be passed via environment
+          ENV_ARGS_STRING=""
+          for k in $sorted_keys; do
+            # Escape quotes and backslashes in the value
+            escaped_value=$(printf '%s\n' "${env_map[$k]}" | sed 's/\\/\\\\/g; s/"/\\"/g')
+            ENV_ARGS_STRING="$ENV_ARGS_STRING --env \"$k=$escaped_value\""
+          done
+          
+          echo "✅ Built environment args"
+          echo "ENV_ARGS_STRING<<EOF" >> $GITHUB_ENV
+          echo "$ENV_ARGS_STRING" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Verify merged secrets
+        run: |
+          echo "🔥 Final ENV_ARGS:"
+          echo "$ENV_ARGS_STRING" | sed 's/--env /\n--env /g'
+
+      - name: SSH Deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: SERVICE,NETWORK,ENV_ARGS_STRING
+          script: |
+            docker login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+            docker network inspect $NETWORK || docker network create $NETWORK
+            docker pull ghcr.io/${{ github.repository }}:latest || true
+            docker rm -f $SERVICE || true
+
+            echo "🚀 Running container with environment variables"
+            echo "ENV_ARGS_STRING: $ENV_ARGS_STRING"
+            
+            # Use eval to properly expand the environment arguments
+            eval "docker run -d --name $SERVICE --network $NETWORK $ENV_ARGS_STRING ghcr.io/${{ github.repository }}:latest"

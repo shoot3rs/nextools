@@ -2,11 +2,8 @@ package nextools
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"os"
 	"slices"
 	"strings"
 	"time"
@@ -26,6 +23,7 @@ const (
 	XStateKey      = "X-state-iso2"
 	XSupplierKey   = "x-supplier"
 	XInfluencerKey = "x-influencer"
+	XAgent         = "x-agent"
 )
 
 type Claims struct {
@@ -142,40 +140,6 @@ func (authenticator *keycloakAuthenticator) ExtractHeaderToken(request connect.A
 
 func (authenticator *keycloakAuthenticator) GetVerifier() *oidc.IDTokenVerifier {
 	return authenticator.verifier
-}
-
-// NewAuthenticator creates a new OIDC authenticator using the given issuer URL and client configuration.
-func NewAuthenticator() (Authenticator, error) {
-	clientId := os.Getenv("AUTH.CLIENT_ID")
-	issuerUrl := os.Getenv("AUTH.URL")
-	url := fmt.Sprintf("%s/realms/%s", issuerUrl, os.Getenv("AUTH.REALM"))
-
-	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: false,
-		},
-	}
-
-	client := &http.Client{
-		Timeout:   time.Duration(1000) * time.Second,
-		Transport: tr,
-	}
-
-	c := oidc.ClientContext(context.Background(), client)
-	provider, err := oidc.NewProvider(c, url)
-	if err != nil {
-		return nil, err
-	}
-
-	oidcConfig := &oidc.Config{
-		ClientID: clientId,
-	}
-
-	verifier := provider.Verifier(oidcConfig)
-
-	return &keycloakAuthenticator{
-		verifier: verifier,
-	}, nil
 }
 
 // ExtractToken extracts the bearer token from the gRPC metadata (authorization header).

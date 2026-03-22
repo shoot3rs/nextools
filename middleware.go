@@ -15,19 +15,18 @@ import (
 	connectcors "connectrpc.com/cors"
 	"connectrpc.com/grpchealth"
 	"github.com/rs/cors"
-	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 type middleware struct {
-	loggR         *zap.Logger
+	loggR         LoggerClient
 	contextHelper ContextHelper
 	authenticator Authenticator
 }
 
 type sseMiddleware struct {
-	loggR         *zap.Logger
+	loggR         LoggerClient
 	contextHelper ContextHelper
 	authenticator Authenticator
 }
@@ -182,8 +181,8 @@ func (middleware *middleware) LoggingUnaryInterceptor() connect.UnaryInterceptor
 			sanitizedReq := middleware.sanitizeRequest(request)
 
 			middleware.loggR.Info("gRPC request received",
-				zap.String("method", fullMethod),
-				zap.Any("request", sanitizedReq),
+				F("method", fullMethod),
+				F("request", sanitizedReq),
 			)
 
 			resp, err := next(ctx, request)
@@ -191,15 +190,15 @@ func (middleware *middleware) LoggingUnaryInterceptor() connect.UnaryInterceptor
 
 			if err != nil {
 				middleware.loggR.Error("gRPC request failed",
-					zap.String("method", fullMethod),
-					zap.Error(err),
-					zap.Duration("duration", duration),
+					F("method", fullMethod),
+					Err(err),
+					F("duration", duration),
 				)
 			} else {
 				middleware.loggR.Info("gRPC request completed",
-					zap.String("method", fullMethod),
-					zap.Any("response", resp),
-					zap.Duration("duration", duration),
+					F("method", fullMethod),
+					F("response", resp),
+					F("duration", duration),
 				)
 			}
 
@@ -326,18 +325,18 @@ func sanitize(v interface{}, sensitiveFields map[string]struct{}) interface{} {
 }
 
 // NewMiddleware returns a new instance of middleware
-func NewMiddleware(authenticator Authenticator, logger *zap.Logger, contextHelper ContextHelper) Middleware {
-	return &middleware{
-		loggR:         logger,
-		authenticator: authenticator,
-		contextHelper: contextHelper,
-	}
+func NewMiddleware(authenticator Authenticator, logger LoggerClient, contextHelper ContextHelper) Middleware {
+	return NewMiddlewareBuilder().
+		WithAuthenticator(authenticator).
+		WithLogger(logger).
+		WithContextHelper(contextHelper).
+		Build()
 }
 
-func NewSseMiddleware(authenticator Authenticator, logger *zap.Logger, contextHelper ContextHelper) SSEMiddleware {
-	return &sseMiddleware{
-		loggR:         logger,
-		contextHelper: contextHelper,
-		authenticator: authenticator,
-	}
+func NewSseMiddleware(authenticator Authenticator, logger LoggerClient, contextHelper ContextHelper) SSEMiddleware {
+	return NewMiddlewareBuilder().
+		WithAuthenticator(authenticator).
+		WithLogger(logger).
+		WithContextHelper(contextHelper).
+		BuildSSE()
 }
