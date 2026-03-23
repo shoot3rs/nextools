@@ -51,10 +51,11 @@ type GlobalConfig interface {
 
 type DBConnection interface {
 	Connect()
+	CreateIndexes()
+	CreateSequence() error
+	EnablePostGIS() error
 	GetConfig() *gorm.Config
 	GetEngine() interface{}
-	CreateIndexes()
-	EnablePostGIS() error
 }
 
 type Middleware interface {

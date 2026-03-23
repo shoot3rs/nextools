@@ -200,23 +200,10 @@ func (db *gormDB) Connect() {
 		db.logf(LevelWarn, "[🧨] error pinging database! [🧨]")
 	}
 
-	if db.dbType != "sqlite" {
-		if err := db.CreateSequence(); err != nil {
-			db.logf(LevelWarn, "[🧨] unable to create sequence: %v [🧨]", err)
-		}
-	}
-
-	if err := db.EnablePostGIS(); err != nil {
-		db.logf(LevelFatal, "failed to enable PostGIS: %v", err)
-		log.Fatal(err)
-	}
-
 	if err := db.handleMigrations(); err != nil {
 		db.logf(LevelFatal, "database migrations failed: %v", err)
 		log.Fatal(err)
 	}
-
-	db.CreateIndexes()
 }
 
 func (db *gormDB) loadSqliteDB() (*gorm.DB, error) {
