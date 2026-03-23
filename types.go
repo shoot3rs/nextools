@@ -52,6 +52,7 @@ type GlobalConfig interface {
 type DBConnection interface {
 	Connect()
 	CreateIndexes()
+	CreateViews()
 	CreateSequence() error
 	EnablePostGIS() error
 	GetConfig() *gorm.Config
