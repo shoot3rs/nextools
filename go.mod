@@ -3,14 +3,17 @@ module github.com/charmmtech/nextools
 go 1.25.0
 
 require (
+	buf.build/gen/go/charmmtech/common/protocolbuffers/go v1.36.11-20260321204703-b9d8a9035244.1
 	connectrpc.com/connect v1.19.1
 	connectrpc.com/cors v0.1.0
 	connectrpc.com/grpchealth v1.4.0
 	connectrpc.com/validate v0.6.0
 	github.com/coreos/go-oidc/v3 v3.17.0
+	github.com/getsentry/sentry-go v0.43.0
 	github.com/joho/godotenv v1.5.1
 	github.com/kachit/gorm-seeder v0.0.3
 	github.com/nats-io/nats.go v1.49.0
+	github.com/posthog/posthog-go v1.11.2
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/rs/cors v1.11.1
 	golang.org/x/net v0.52.0
@@ -22,14 +25,16 @@ require (
 
 require (
 	buf.build/gen/go/bufbuild/protovalidate/protocolbuffers/go v1.36.9-20250912141014-52f32327d4b0.1 // indirect
-	buf.build/gen/go/charmmtech/common/protocolbuffers/go v1.36.11-20260321204703-b9d8a9035244.1 // indirect
 	buf.build/go/protovalidate v1.0.0 // indirect
 	cel.dev/expr v0.25.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
+	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/google/cel-go v0.26.1 // indirect
+	github.com/google/uuid v1.6.0 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/pgx/v5 v5.6.0 // indirect

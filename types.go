@@ -17,6 +17,11 @@ import (
 	gormlogger "gorm.io/gorm/logger"
 )
 
+type ErrorReporter interface {
+	Capture(context.Context, ErrorReport)
+	Close() error
+}
+
 type Nextools interface {
 	Logger(cfg Config) LoggerClient
 	Middleware(authenticator Authenticator, logger LoggerClient, ctxHelper ContextHelper) Middleware
@@ -78,6 +83,7 @@ type Authenticator interface {
 // LoggerClient lists the exported helpers backed by nextools.Logger.
 type LoggerClient interface {
 	With(fields ...Field) *Logger
+	Close() error
 	SetLevel(Level)
 	Trace(msg string, fields ...Field)
 	Debug(msg string, fields ...Field)

@@ -1,6 +1,6 @@
 # nextools Builder Guide
 
-`nextools` exposes reusable helpers for the Charmm tech stack. Beyond the `.Config`/`.Database` option functions, the remainder of the package now follows the same builder mindset so your services only have to wire up what they really care about. The package currently offers builders for configuration, logging, authentication, middleware, context helpers, and database wiring so you can keep every cross-cutting concern in one place.
+`nextools` exposes reusable helpers for the Charmm tech stack. Beyond the `.Config`/`.Database` option functions, the remainder of the package now follows the same builder mindset so your services only have to wire up what they really care about. The package currently offers builders for configuration, logging, authentication, middleware, context helpers, database wiring, and error reporting so you can keep every cross-cutting concern in one place.
 
 ## Key builders
 
@@ -8,7 +8,7 @@
 | --- | --- |
 | `nextools.NewLoggerBuilder()` | Configure service name, version, env, level, output, and caller skip before calling `.Build()`. |
 | `nextools.NewAuthenticatorBuilder()` | Override issuer URL, realm, client ID, HTTP client, TLS config, or request timeout before `.Build()` returns the familiar `Authenticator`. |
-| `nextools.NewMiddlewareBuilder()` | Plug in `Authenticator`, `LoggerClient`, and `ContextHelper` once and produce either `Middleware` or `SSEMiddleware`. |
+| `nextools.NewMiddlewareBuilder()` | Plug in `Authenticator`, `LoggerClient`, `ContextHelper`, and optionally an `ErrorReporter` once and produce request middleware. |
 
 The builder helpers complement the existing option sets (e.g., `nextools.WithEnvValue`, `nextools.WithModels`, `nextools.WithConfig`).
 
@@ -40,12 +40,6 @@ middleware := nextools.NewMiddlewareBuilder().
     WithLogger(logger).
     WithContextHelper(ctxHelper).
     Build()
-
-sse := nextools.NewMiddlewareBuilder().
-    WithAuthenticator(authenticator).
-    WithLogger(logger).
-    WithContextHelper(ctxHelper).
-    BuildSSE()
 ```
 
 ## Tips
@@ -53,6 +47,7 @@ sse := nextools.NewMiddlewareBuilder().
 * Builders retain sensible defaults (e.g., the logger looks up `APP.NAME`/`APP.VERSION`, the authenticator uses `AUTH.*` env vars, and middleware just wires the dependencies you supply).
 * Each builder is chainable so you can read values from flags, environment, or runtime discovery and decide what to override.
 * If you already have a `Config` struct, the logger builder exposes `WithConfig(config)` to seed the builder.
+* Error reporting uses dotted env vars such as `ERROR.REPORTING_PROVIDER`, `SENTRY.DSN`, and `POSTHOG.PROJECT_TOKEN`.
 
 This README is the single source when getting started with the `nextools` helpers.
 
@@ -77,7 +72,7 @@ The builder also exposes `WithEnvLookup` for test fakes, `WithEnvValues` for bul
 
 ## Logger builder
 
-`nextools.NewLoggerBuilder()` exposes fluent setters for the service name, version, environment, level, output writer, ANSI switching, and caller skip. The builder seeds from `APP.NAME`, `APP.VERSION`, and `APP.ENV` automatically.
+`nextools.NewLoggerBuilder()` exposes fluent setters for the service name, version, environment, level, output writer, ANSI switching, caller skip, and error reporter. The builder seeds from `APP.NAME`, `APP.VERSION`, and `APP.ENV` automatically.
 
 ```go
 import "os"
@@ -89,6 +84,84 @@ logger := nextools.NewLoggerBuilder().
     WithLevel(nextools.LevelInfo).
     WithOutput(os.Stdout).
     WithNoColor(true).
+    Build()
+```
+
+The logger always emits the production log structure and can forward error-level events to an `ErrorReporter`. Call `defer logger.Close()` in service entrypoints so buffered reporters such as Sentry/PostHog can flush on shutdown.
+
+```go
+reporter := nextools.NewErrorReporterFromEnv("billing", "v2.3.0", "production")
+
+logger := nextools.NewLoggerBuilder().
+    WithService("billing").
+    WithVersion("v2.3.0").
+    WithEnv(nextools.EnvProduction).
+    WithErrorReporter(reporter).
+    Build()
+
+defer logger.Close()
+```
+
+## Error reporting
+
+`nextools` supports pluggable error reporting behind a shared interface:
+
+```go
+type ErrorReporter interface {
+    Capture(context.Context, ErrorReport)
+    Close() error
+}
+```
+
+Built-in providers:
+
+* `posthog`
+* `sentry`
+* `none` / `noop`
+
+The default logger builder resolves the reporter from environment through `nextools.NewErrorReporterFromEnv(...)`.
+
+### Provider selection
+
+Use the dotted env vars below:
+
+* `ERROR.REPORTING_PROVIDER=posthog`
+* `ERROR.REPORTING_PROVIDER=sentry`
+* `ERROR.REPORTING_PROVIDER=none`
+
+Sentry config:
+
+* `SENTRY.DSN`
+* `SENTRY.DEBUG`
+* `SENTRY.SEND_DEFAULT_PII`
+
+PostHog config:
+
+* `POSTHOG.PROJECT_TOKEN`
+* `POSTHOG.PROJECT_API_KEY`
+* `POSTHOG.API_KEY`
+* `POSTHOG.ENDPOINT`
+* `POSTHOG.HOST`
+* `POSTHOG.DISTINCT_ID`
+
+### Capture model
+
+`nextools` intentionally splits error capture into two paths:
+
+* Logger-backed capture for non-request errors such as startup failures, worker failures, DB/NATS/Temporal issues, and explicit `logger.Error(...)` calls.
+* Middleware-backed capture for request-scoped failures so RPC metadata can be attached.
+
+This is why the reporter is not implemented as middleware alone. Middleware only sees request flow, while many service failures happen outside request handling.
+
+### Swapping providers
+
+If you want to swap PostHog for Sentry, or add another backend later, keep the service wiring the same and provide a different `ErrorReporter`.
+
+```go
+logger := nextools.NewLoggerBuilder().
+    WithService("billing").
+    WithVersion("v2.3.0").
+    WithErrorReporter(nextools.NewSentryReporterFromEnv("billing", "v2.3.0", "production")).
     Build()
 ```
 
@@ -114,7 +187,7 @@ The returned `Authenticator` exposes middleware helpers (`ValidateTokenMiddlewar
 
 ## Middleware builder
 
-Build middleware once and reuse it across HTTP/gRPC handlers. Provide the configured `Authenticator`, `LoggerClient`, and `ContextHelper` to `nextools.NewMiddlewareBuilder()`.
+Build middleware once and reuse it across HTTP/gRPC handlers. Provide the configured `Authenticator`, `LoggerClient`, and `ContextHelper` to `nextools.NewMiddlewareBuilder()`. If the logger is a `nextools.Logger`, the middleware builder automatically reuses the logger's configured `ErrorReporter`. You can also override it explicitly.
 
 ```go
 middleware := nextools.NewMiddlewareBuilder().
@@ -130,6 +203,8 @@ corsHandler := middleware.CorsMiddleware(serverMux)
 ```
 
 The builder also returns `UnaryTenantMismatchInterceptor`, `UnaryLoggingInterceptor`, and you can swap the `ContextHelper` if you want different tenant extraction logic.
+
+For request failures, `UnaryLoggingInterceptor()` reports the exception through the configured `ErrorReporter` first, then logs it, marking the log path to avoid duplicate external reporting.
 
 ## Context helper
 

@@ -23,12 +23,14 @@ type middleware struct {
 	loggR         LoggerClient
 	contextHelper ContextHelper
 	authenticator Authenticator
+	reporter      ErrorReporter
 }
 
 type sseMiddleware struct {
 	loggR         LoggerClient
 	contextHelper ContextHelper
 	authenticator Authenticator
+	reporter      ErrorReporter
 }
 
 func (middleware *sseMiddleware) AttachSSEHeaders(next http.HandlerFunc) http.HandlerFunc {
@@ -189,10 +191,29 @@ func (middleware *middleware) UnaryLoggingInterceptor() connect.UnaryInterceptor
 			duration := time.Since(start)
 
 			if err != nil {
+				if middleware.reporter != nil {
+					middleware.reporter.Capture(ctx, ErrorReport{
+						Message: "gRPC request failed",
+						Err:     err,
+						Level:   LevelError,
+						Handled: true,
+						Tags: map[string]string{
+							"component": "connectrpc",
+							"method":    fullMethod,
+						},
+						Extra: map[string]any{
+							"method":   fullMethod,
+							"request":  sanitizedReq,
+							"duration": duration.String(),
+						},
+						StackSkip: 2,
+					})
+				}
 				middleware.loggR.Error("gRPC request failed",
 					F("method", fullMethod),
 					Err(err),
 					F("duration", duration),
+					ReportSkip(),
 				)
 			} else {
 				middleware.loggR.Info("gRPC request completed",

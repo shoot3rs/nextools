@@ -177,6 +177,8 @@ type Config struct {
 	// CallerSkip adds extra frames to skip when resolving file:line.
 	// Useful when wrapping Logger in another thin layer.
 	CallerSkip int
+	// Reporter forwards captured errors to an external sink. Nil disables reporting.
+	Reporter ErrorReporter
 }
 
 // ╔══════════════════════════════════════════════════════════════════════════╗
@@ -248,6 +250,13 @@ func (l *Logger) SetLevel(lv Level) {
 	l.mu.Unlock()
 }
 
+func (l *Logger) Close() error {
+	if l.cfg.Reporter == nil {
+		return nil
+	}
+	return l.cfg.Reporter.Close()
+}
+
 // ── Public API ─────────────────────────────────────────────────────────────
 
 func (l *Logger) Trace(msg string, fields ...Field) { l.emit(LevelTrace, 1, msg, fields) }
@@ -283,6 +292,16 @@ func (l *Logger) WithEntry(e Entry) {
 		e.Version = l.version
 	}
 	l.write(e)
+	if e.Level >= LevelError && l.cfg.Reporter != nil && !shouldSkipReport(e.Fields) {
+		l.cfg.Reporter.Capture(context.Background(), ErrorReport{
+			Message:   e.Msg,
+			Err:       extractError(e.Fields),
+			Level:     e.Level,
+			Handled:   true,
+			Extra:     fieldsToExtra(e.Fields),
+			StackSkip: 4 + l.cfg.CallerSkip,
+		})
+	}
 }
 
 // ── Internal ───────────────────────────────────────────────────────────────
@@ -306,17 +325,22 @@ func (l *Logger) emit(level Level, skip int, msg string, fields []Field) {
 		Msg:     msg,
 		Fields:  all,
 	})
+
+	if level >= LevelError && l.cfg.Reporter != nil && !shouldSkipReport(all) {
+		l.cfg.Reporter.Capture(context.Background(), ErrorReport{
+			Message:   msg,
+			Err:       extractError(all),
+			Level:     level,
+			Handled:   true,
+			Extra:     fieldsToExtra(all),
+			StackSkip: skip + 1 + l.cfg.CallerSkip,
+		})
+	}
 }
 
 func (l *Logger) write(e Entry) {
-	var s string
-	if l.cfg.Env == EnvProduction || l.cfg.Env == EnvStaging {
-		s = l.formatProd(e)
-	} else {
-		s = l.formatDev(e)
-	}
 	l.mu.Lock()
-	fmt.Fprint(l.cfg.Output, s)
+	fmt.Fprint(l.cfg.Output, l.formatProd(e))
 	l.mu.Unlock()
 }
 

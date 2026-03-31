@@ -5,6 +5,7 @@ type MiddlewareBuilder struct {
 	authenticator Authenticator
 	logger        LoggerClient
 	helper        ContextHelper
+	reporter      ErrorReporter
 }
 
 // NewMiddlewareBuilder boots a builder instance.
@@ -21,6 +22,9 @@ func (b *MiddlewareBuilder) WithAuthenticator(auth Authenticator) *MiddlewareBui
 // WithLogger sets the logging dependency.
 func (b *MiddlewareBuilder) WithLogger(logger LoggerClient) *MiddlewareBuilder {
 	b.logger = logger
+	if concrete, ok := logger.(*Logger); ok && b.reporter == nil {
+		b.reporter = concrete.cfg.Reporter
+	}
 	return b
 }
 
@@ -30,12 +34,19 @@ func (b *MiddlewareBuilder) WithContextHelper(helper ContextHelper) *MiddlewareB
 	return b
 }
 
+// WithErrorReporter wires an error reporter for request-scoped failures.
+func (b *MiddlewareBuilder) WithErrorReporter(reporter ErrorReporter) *MiddlewareBuilder {
+	b.reporter = reporter
+	return b
+}
+
 // Build returns a Middleware configured with the collected dependencies.
 func (b *MiddlewareBuilder) Build() Middleware {
 	return &middleware{
 		loggR:         b.logger,
 		authenticator: b.authenticator,
 		contextHelper: b.helper,
+		reporter:      b.reporter,
 	}
 }
 

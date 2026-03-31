@@ -18,6 +18,11 @@ func NewLoggerBuilder() *LoggerBuilder {
 			Env:     DetectAppEnv(nil),
 			Level:   LevelInfo,
 			Output:  os.Stdout,
+			Reporter: NewErrorReporterFromEnv(
+				os.Getenv("APP.NAME"),
+				os.Getenv("APP.VERSION"),
+				string(DetectAppEnv(nil)),
+			),
 		},
 	}
 }
@@ -63,6 +68,12 @@ func (b *LoggerBuilder) WithOutput(output io.Writer) *LoggerBuilder {
 // WithNoColor toggles ANSI output.
 func (b *LoggerBuilder) WithNoColor(noColor bool) *LoggerBuilder {
 	b.cfg.NoColor = noColor
+	return b
+}
+
+// WithErrorReporter overrides the error reporter used for error tracking.
+func (b *LoggerBuilder) WithErrorReporter(reporter ErrorReporter) *LoggerBuilder {
+	b.cfg.Reporter = reporter
 	return b
 }
 
