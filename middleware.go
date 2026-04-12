@@ -243,19 +243,6 @@ func (middleware *middleware) TenantHeaderInterceptor(routes ...string) connect.
 				return next(ctx, request)
 			}
 
-			if claims.IsClientToken() {
-				log.Println("👮 service account is making this request")
-				if country := request.Header().Get(XCountryKey); country != "" {
-					ctx = context.WithValue(ctx, XCountryKey, country)
-				}
-
-				if state := request.Header().Get(XStateKey); state != "" {
-					ctx = context.WithValue(ctx, XStateKey, state)
-				}
-
-				return next(ctx, request)
-			}
-
 			country := request.Header().Get(XCountryKey)
 			if country == "" {
 				return nil, status.Errorf(codes.InvalidArgument, "missing required X-Country-Iso2 header")
@@ -263,12 +250,17 @@ func (middleware *middleware) TenantHeaderInterceptor(routes ...string) connect.
 
 			newCtx := context.WithValue(ctx, XCountryKey, country)
 
-			if claims.HasRole("Campaign Manager") {
-				state := request.Header().Get(XStateKey)
-				if state == "" {
-					return nil, status.Errorf(codes.InvalidArgument, "missing required X-State-Iso2 header")
-				}
+			state := request.Header().Get(XStateKey)
+			if state != "" {
 				newCtx = context.WithValue(newCtx, XStateKey, state)
+			}
+
+			if claims.HasRole("Campaign Manager") && state == "" {
+				return nil, status.Errorf(codes.InvalidArgument, "missing required X-State-Iso2 header")
+			}
+
+			if claims.IsClientToken() {
+				log.Println("👮 service account is making this request")
 			}
 
 			return next(newCtx, request)
