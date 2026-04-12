@@ -2,10 +2,12 @@ package nextools
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strings"
 	"time"
 
+	"connectrpc.com/connect"
 	"github.com/getsentry/sentry-go"
 )
 
@@ -71,11 +73,21 @@ func (r *SentryReporter) Capture(ctx context.Context, report ErrorReport) {
 		}
 
 		if report.Err != nil {
-			hub.CaptureException(report.Err)
+			err := report.Err
+			var connectErr *connect.Error
+			if errors.As(err, &connectErr) {
+				scope.SetTag("connect_code", connectErr.Code().String())
+				if unwrapped := errors.Unwrap(connectErr); unwrapped != nil {
+					err = unwrapped
+				}
+			}
+			hub.CaptureException(err)
+			hub.Flush(2 * time.Second)
 			return
 		}
 		if report.Message != "" {
 			hub.CaptureMessage(report.Message)
+			hub.Flush(2 * time.Second)
 		}
 	})
 }
