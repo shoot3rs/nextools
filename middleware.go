@@ -238,7 +238,7 @@ func (middleware *middleware) TenantHeaderInterceptor(routes ...string) connect.
 			}
 
 			claims := middleware.contextHelper.GetUserClaims(ctx)
-			if claims.HasRole("Root") || claims.HasRole("User") {
+			if claims.HasRole("Root") {
 				log.Printf("👮 [TenantHeaderInterceptor]: Skipping tenant header check for role: %s with id: %s\n", claims.GetRole(), claims.Id)
 				return next(ctx, request)
 			}
