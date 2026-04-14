@@ -243,6 +243,11 @@ func (middleware *middleware) TenantHeaderInterceptor(routes ...string) connect.
 				return next(ctx, request)
 			}
 
+			if claims.IsClientToken() {
+				log.Println("👮 service account is making this request: skipping tenant header check")
+				return next(ctx, request)
+			}
+
 			country := request.Header().Get(XCountryKey)
 			if country == "" {
 				return nil, status.Errorf(codes.InvalidArgument, "missing required X-Country-Iso2 header")
@@ -257,10 +262,6 @@ func (middleware *middleware) TenantHeaderInterceptor(routes ...string) connect.
 
 			if claims.HasRole("Campaign Manager") && state == "" {
 				return nil, status.Errorf(codes.InvalidArgument, "missing required X-State-Iso2 header")
-			}
-
-			if claims.IsClientToken() {
-				log.Println("👮 service account is making this request")
 			}
 
 			return next(newCtx, request)
