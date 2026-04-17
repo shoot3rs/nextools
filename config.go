@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"connectrpc.com/validate"
 	"github.com/joho/godotenv"
@@ -174,7 +175,13 @@ func (cfg *appConfig) HttpClient() *http.Client {
 	if cfg.httpClient != nil {
 		return cfg.httpClient
 	}
-	return http.DefaultClient
+	timeout := 30 * time.Second
+	if raw := cfg.envValue("HTTP.CLIENT_TIMEOUT_SECONDS"); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
+			timeout = time.Duration(v) * time.Second
+		}
+	}
+	return &http.Client{Timeout: timeout}
 }
 
 func (cfg *appConfig) SseAddress() string {
