@@ -61,8 +61,8 @@ func (r *SentryReporter) Capture(ctx context.Context, report ErrorReport) {
 		for key, value := range report.Tags {
 			scope.SetTag(key, value)
 		}
-		for key, value := range report.Extra {
-			scope.SetExtra(key, value)
+		if len(report.Extra) > 0 {
+			scope.SetContext("extra", report.Extra)
 		}
 
 		if report.Message != "" {
