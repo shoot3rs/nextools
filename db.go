@@ -36,6 +36,7 @@ type gormDB struct {
 	seederFactory   SeederFactory
 	seedCheckModels []interface{}
 	logger          LoggerClient
+	enablePostGIS   bool
 }
 
 const (
@@ -124,6 +125,14 @@ func WithSequenceName(name string) DatabaseOption {
 		if name != "" {
 			db.sequenceName = name
 		}
+	}
+}
+
+// WithPostGIS enables the PostGIS extension on PostgreSQL databases before
+// migrations run. Use this when any registered model contains geometry columns.
+func WithPostGIS() DatabaseOption {
+	return func(db *gormDB) {
+		db.enablePostGIS = true
 	}
 }
 
@@ -258,6 +267,13 @@ func (db *gormDB) Connect() {
 
 	if err := sqlDB.Ping(); err != nil {
 		db.logf(LevelWarn, "[🧨] error pinging database! [🧨]")
+	}
+
+	if db.enablePostGIS {
+		if err := db.EnablePostGIS(); err != nil {
+			db.logf(LevelFatal, "failed to enable PostGIS: %v", err)
+			log.Fatal(err)
+		}
 	}
 
 	if err := db.handleMigrations(); err != nil {
